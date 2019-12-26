@@ -31,18 +31,19 @@ Temporary Items
 #
 # Get latest from https://github.com/github/gitignore/blob/master/Unity.gitignore
 #
-Assets/[Ll]ibrary/
-Assets/[Tt]emp/
-Assets/[Oo]bj/
-Assets/[Bb]uild/
-Assets/[Bb]uilds/
-Assets/[Ll]ogs/
-Assets/[Mm]emoryCaptures/
-Assets/[Oo]thers/
-Assets/TextMesh\ Pro/
-Assets/output_images/
-Assets/output_materials/
-Assets/Shaders/
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Mm]emoryCaptures/
+/[Oo]thers/
+/Assets/[Oo]thers/
+/[Tt]extMesh\ Pro/
+/[Oo]utput_images/
+/Assets/[Oo]utput_images/
+/[Oo]utput_materials/
 
 
 # Asset meta data should only be ignored when the corresponding asset is also ignored
