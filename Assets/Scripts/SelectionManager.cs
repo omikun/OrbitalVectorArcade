@@ -4,6 +4,67 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
+
+public class MoveUnit
+{
+    public GameObject move_ring;
+    public GameObject label_distance;
+    public TextMeshPro ld_tmp;
+    GameObject move_line;
+    public LineRenderer lr;
+    public bool done_moving;
+    public Vector3 destination;
+    public Vector3 h_point;         //co-planar of destination
+    public float y_offset;          //y offset from h-point, to be added onto h_point.y
+    public GameObject go;           //unit that is moving
+    public GameObject base_height;         //ui_height for move unit
+
+    public MoveUnit(float line_width, GameObject ld, GameObject mr, GameObject ml, GameObject unit, GameObject bh)
+    {
+        go = unit;
+        label_distance = ld;
+        ld_tmp = label_distance.GetComponent<TextMeshPro>();
+        base_height = bh;
+        move_ring = mr;
+        move_line = ml;
+        y_offset = 0f;
+        lr = move_line.GetComponent<LineRenderer>();
+        lr.useWorldSpace = true;
+        lr.positionCount = 2;
+        lr.SetWidth(line_width, line_width);
+        lr.enabled = false;
+        done_moving = true;
+        //lr.GetPropertyBlock(_propBlock);
+        //_propBlock.SetColor("_Color", stem_color);
+        //lr.SetPropertyBlock(_propBlock);
+    }
+
+    public void StartMoving()
+    {
+        done_moving = false;
+    }
+
+    public bool HasArrived()
+    {
+        float distance = (go.transform.position - destination).magnitude;
+        return (distance < .5f);
+    }
+
+    public void SetActive(bool active)
+    {
+        move_ring.SetActive(active);
+        move_line.SetActive(active);
+        base_height.SetActive(active);
+        label_distance.SetActive(active);
+        lr.enabled = active;
+        y_offset = 0;
+        if (!active)
+        {
+            done_moving = true;
+        }
+    }
+}
+
 public class SelectionManager : MonoBehaviour
 {
     EnvironmentManager em;
@@ -23,66 +84,6 @@ public class SelectionManager : MonoBehaviour
     public float line_width = 0.05f;
     private MaterialPropertyBlock _propBlock;
 
-    class MoveUnit
-    {
-        public GameObject move_ring;
-        public GameObject label_distance;
-        public TextMeshPro ld_tmp;
-        GameObject move_line;
-        public LineRenderer lr;
-        public bool done_moving;
-        public Vector3 destination;
-        public Vector3 h_point;         //co-planar of destination
-        public float y_offset;          //y offset from h-point, to be added onto h_point.y
-        public GameObject go;           //unit that is moving
-        public GameObject base_height;         //ui_height for move unit
-
-        public MoveUnit(float line_width, GameObject ld, GameObject mr, GameObject ml, GameObject unit, GameObject bh)
-        {
-            go = unit;
-            label_distance = ld;
-            ld_tmp = label_distance.GetComponent<TextMeshPro>();
-            base_height = bh;
-            move_ring = mr;
-            move_line = ml;
-            y_offset = 0f;
-            lr = move_line.GetComponent<LineRenderer>();
-            lr.useWorldSpace = true;
-            lr.positionCount = 2;
-            lr.SetWidth(line_width, line_width);
-            lr.enabled = false;
-            done_moving = true;
-            //lr.GetPropertyBlock(_propBlock);
-            //_propBlock.SetColor("_Color", stem_color);
-            //lr.SetPropertyBlock(_propBlock);
-        }
-
-        public void StartMoving()
-        {
-            done_moving = false;
-        }
-
-        public bool HasArrived()
-        {
-            float distance = (go.transform.position - destination).magnitude;
-            return (distance < .5f);
-        }
-
-        public void SetActive(bool active)
-        {
-            move_ring.SetActive(active);
-            move_line.SetActive(active);
-            base_height.SetActive(active);
-            label_distance.SetActive(active);
-            lr.enabled = active;
-            y_offset = 0;
-            if (!active)
-            {
-                done_moving = true;
-            }
-        }
-
-    }
     MoveUnit ui_move_unit;
     Dictionary<GameObject, MoveUnit> move_units;
 
@@ -164,66 +165,32 @@ public class SelectionManager : MonoBehaviour
         bool shift_key_down = Input.GetKeyDown(KeyCode.LeftShift);
         bool shift_key_up = Input.GetKeyUp(KeyCode.LeftShift);
         bool shift_key = shift_key_down | shift_key_up;
-        bool lmb = Input.GetMouseButtonDown(0);
+        bool lmb = Input.GetMouseButton(0);
+        bool lmb_down = Input.GetMouseButtonDown(0);
+        bool lmb_up = Input.GetMouseButtonUp(0);
         bool rmb = Input.GetMouseButtonDown(1);
-        bool move_command = ctrl_key & lmb | rmb;
-        bool focus_command = !move_command & lmb & alt_key;
-        bool attack_command = !move_command & lmb & ctrl_key;
-        bool select_command = !move_command & !focus_command & lmb;
+        bool move_command = ctrl_key & lmb_down | rmb;
+        bool focus_command = !move_command & lmb_down & alt_key & (em.newFocusTarget != null);
+        bool attack_command = !move_command & lmb_down & ctrl_key;
+        bool select_command = !move_command & !focus_command & (lmb_down |lmb | lmb_up);
+        bool cancel_command = Input.GetKey(KeyCode.Escape);
+        bool stop_command = Input.GetKey("s");
 
-        bool has_commands = move_command | focus_command | select_command | shift_key;
-        if (!has_commands)
-        {
-            return;
-        }
 
-        if (select_command)
-        {
-            //if move in porgress
-            //  do nothing if moused over a unit
-            //  cancel move
-            //else select unit
-            if (move_ui_state == MoveState.planning)
-            {
-                if (!em.newFocusTarget)
-                {
-                    move_ui_state = MoveState.idle;
-                    ui_move_unit.SetActive(false);
-                }
-            } else if (em.newFocusTarget) {
-                //take new focus and set to old focus, stop move unit first
-                if (selectedGo)
-                {
-                    selectedGo.transform.Find("selection_ring").gameObject.SetActive(false);
-                }
-                selectedGo = em.newFocusTarget;
-                selectedGo.transform.Find("selection_ring").gameObject.SetActive(true);
-            }
-            em.newFocusTarget = null;
-        } else if (focus_command)
-        {
-            //switch focus
-            em.cameraFocusTarget = em.newFocusTarget;
-        } else if (move_command && selectedGo != null)
-        {
-            switch(move_ui_state) {
-                case MoveState.idle:
-                    move_ui_state = MoveState.planning;
-                    break;
-                case MoveState.planning:
-                    move_ui_state = MoveState.confirmed;
-                    break;
-                case MoveState.vertical_planning:
-                    move_ui_state = MoveState.confirmed;
-                    break;
-                case MoveState.confirmed:
-                    move_ui_state = MoveState.idle;
-                    break;
-                default:
-                    break;
-            }
-            ProcessMoveState();
-        } else if (shift_key_down && move_ui_state == MoveState.planning)
+        //priorities
+        int command = 0;
+        command += cancel_command ? 0x1 : 0;
+        command += select_command ? 0x2 : 0;
+        command += focus_command  ? 0x4 : 0;
+        command += move_command   ? 0x8 : 0;
+        command += attack_command ? 0x10 : 0;
+        //  special?
+
+        if (cancel_command) { CancelCommand(); }
+        else if (select_command) { SelectCommand(lmb_down, lmb, lmb_up); }
+        else if (focus_command) { FocusCommand(); }
+        else if (move_command) { MoveCommand(); }
+        else if (shift_key_down && move_ui_state == MoveState.planning)
         {
             Debug.Log("in vertical planning, maybe?");
             move_ui_state = MoveState.vertical_planning;
@@ -232,6 +199,75 @@ public class SelectionManager : MonoBehaviour
             Debug.Log("in horizontal planning, maybe?");
             move_ui_state = MoveState.planning;
         }
+        else if (attack_command) { AttackCommand(); }
+    }
+
+    void CancelCommand()
+    {
+        move_ui_state = MoveState.idle;
+        ui_move_unit.SetActive(false);
+        em.newFocusTarget = null;
+    }
+
+    void SelectCommand(bool down, bool pressed, bool up)
+    {
+        //if move in porgress
+        //  cancel move
+        //else select unit
+        //else drag select
+        if (move_ui_state == MoveState.planning) //don't cancel if trying to select unit && !em.newFocusTarget)
+        {
+            CancelCommand();
+        } else if (down)
+        {
+            //record start of box
+        } else if (pressed)
+        {
+            //update selection box
+        } else if (up)
+        {
+            //add all units to selection array
+            //disable selection box
+        }
+        if (em.newFocusTarget) {
+            //take new focus and set to old focus, stop move unit first
+            if (selectedGo)
+            {
+                selectedGo.transform.Find("selection_ring").gameObject.SetActive(false);
+            }
+            selectedGo = em.newFocusTarget;
+            selectedGo.transform.Find("selection_ring").gameObject.SetActive(true);
+        }
+    }
+
+    void FocusCommand()
+    {
+        //switch focus
+        em.cameraFocusTarget = em.newFocusTarget;
+    }
+    void MoveCommand()
+    {
+        if (selectedGo == null)
+        {
+            return;
+        }
+        switch(move_ui_state) {
+            case MoveState.idle:
+                move_ui_state = MoveState.planning;
+                break;
+            case MoveState.planning:
+                move_ui_state = MoveState.confirmed;
+                break;
+            case MoveState.vertical_planning:
+                move_ui_state = MoveState.confirmed;
+                break;
+            case MoveState.confirmed:
+                move_ui_state = MoveState.idle;
+                break;
+            default:
+                break;
+        }
+        ProcessMoveState();
     }
 
     void ProcessMoveState()
@@ -261,6 +297,9 @@ public class SelectionManager : MonoBehaviour
         }
     }
 
+    void AttackCommand()
+    {
+    }
     void MoveIndicator()
     {
         //right click to start move

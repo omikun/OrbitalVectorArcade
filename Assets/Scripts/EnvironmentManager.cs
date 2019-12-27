@@ -95,11 +95,16 @@ public class EnvironmentManager : MonoBehaviour
         UpdateScroll(target_position);
 
         //rotate camera around a position
-        if (Input.GetMouseButtonDown(0))
+        bool ctrl_key = Input.GetKey(KeyCode.LeftControl);
+        bool lmb_down = Input.GetMouseButtonDown(0);
+        bool rmb_down = Input.GetMouseButtonDown(1);
+        if (ctrl_key && lmb_down || rmb_down)
         {
             lastMousePos = Input.mousePosition;
         }
-        bool buttonEvent = Input.GetMouseButton(0);
+        bool lmb = Input.GetMouseButton(0);
+        bool rmb = Input.GetMouseButton(1);
+        bool buttonEvent = ctrl_key && lmb || rmb;
 
         if (buttonEvent) rotateAroundTarget();
         last_offset = transform.position - lastTargetPosition;
