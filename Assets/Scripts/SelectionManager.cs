@@ -87,6 +87,8 @@ public class SelectionManager : MonoBehaviour
     MoveUnit ui_move_unit;
     Dictionary<GameObject, MoveUnit> move_units;
 
+    List<MouseButtonState> mb;
+
     GameObject NewBase(GameObject target)
     {
         var go = Instantiate(ui_height);
@@ -125,6 +127,9 @@ public class SelectionManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        mb = new List<MouseButtonState>();
+        mb.Add(new MouseButtonState());
+        mb.Add(new MouseButtonState());
         camera = GetComponent<Camera>();
         em = GameObject.FindObjectOfType<EnvironmentManager>();
         move_line.SetActive(false);
@@ -136,6 +141,7 @@ public class SelectionManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        MouseControl();
         StateMachine();
         //Select();
         MoveIndicator();
@@ -153,9 +159,48 @@ public class SelectionManager : MonoBehaviour
     MoveState move_ui_state = MoveState.idle;
     bool prev_trigger = false;
 
+    class MouseButtonState {
+        public bool key;
+        public bool key_down;
+        public bool key_up;
+        public Vector2 pos0;
+        public Vector2 pos1;
+        float threshold = 3f;
+        public MouseButtonState() { Debug.Log("MouseButtonState Constructor"); }
+        public void Process() {
+            if (key_down)
+            {
+                pos0 = Input.mousePosition;
+            }
+            if (key)
+            {
+                pos1 = Input.mousePosition;
+            }
+        }
+        public bool DidTravel() {
+            return (pos0 - pos1).magnitude > threshold;
+        }
+    }
+
+    void MouseControl()
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            var mbs = mb[i];
+            mbs.key = Input.GetMouseButton(i);
+            mbs.key_down = Input.GetMouseButtonDown(i);
+            mbs.key_up = Input.GetMouseButtonUp(i);
+            mbs.Process();
+        }
+    }
+
+        //find mouse coord on mouse down
+        //find mouse coord on mouse
+        //find mouse coord on mouse up
     //when user starts move command, a ui_move_unit is created to represent the UI
     //when move command is confirmed, the MoveUnit is... 
     //moved over to move_units to have an effect
+    int prev_command = 0;
     void StateMachine()
     {
         //Philosophy: only accept 1 legal command per frame
@@ -168,8 +213,9 @@ public class SelectionManager : MonoBehaviour
         bool lmb = Input.GetMouseButton(0);
         bool lmb_down = Input.GetMouseButtonDown(0);
         bool lmb_up = Input.GetMouseButtonUp(0);
-        bool rmb = Input.GetMouseButtonDown(1);
-        bool move_command = ctrl_key & lmb_down | rmb;
+        bool rmb_down = Input.GetMouseButtonDown(1);
+        bool rmb_up = Input.GetMouseButtonUp(1);
+        bool move_command = ctrl_key & lmb_up & !mb[0].DidTravel()| (rmb_up & !mb[1].DidTravel());
         bool focus_command = !move_command & lmb_down & alt_key & (em.newFocusTarget != null);
         bool attack_command = !move_command & lmb_down & ctrl_key;
         bool select_command = !move_command & !focus_command & (lmb_down |lmb | lmb_up);
@@ -184,6 +230,10 @@ public class SelectionManager : MonoBehaviour
         command += focus_command  ? 0x4 : 0;
         command += move_command   ? 0x8 : 0;
         command += attack_command ? 0x10 : 0;
+        if (prev_command != command) {
+            Debug.Log("command: " + command.ToString());
+            prev_command = command;
+        }
         //  special?
 
         if (cancel_command) { CancelCommand(); }
