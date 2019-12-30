@@ -30,7 +30,7 @@ public class SelectMe : MonoBehaviour
         }
 
         Debug.Log("mouse down! " + lmb.ToString() + " " + rmb.ToString());
-        em.newFocusTarget = gameObject;
+        em.newFocusTargets.Add(gameObject);
     }
     // Update is called once per frame
     void Update()

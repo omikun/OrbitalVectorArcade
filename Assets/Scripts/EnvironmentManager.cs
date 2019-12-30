@@ -3,20 +3,30 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public class EnvironmentManager : MonoBehaviour
 {
     Vector3 lastMousePos;
     Vector3 lastTargetPosition;
     Vector3 last_offset;
-    public GameObject newFocusTarget;
-    public GameObject cameraFocusTarget;
+    public List<GameObject> newFocusTargets = new List<GameObject>();
+    public List<GameObject> cameraFocusTargets = new List<GameObject>();
     Vector3 prevFocusPos;
     float totalAngleY = 0, totalAngleX = 0;
-    // Start is called before the first frame update
+
+    Vector3 GetAveragePosition(List<GameObject> list)
+    {
+        var avg = new Vector3(
+                list.Average(x=>x.transform.position.x),
+                list.Average(x=>x.transform.position.y),
+                list.Average(x=>x.transform.position.z));
+        return avg;
+    }
+
     void Start()
     {
-        lastTargetPosition = cameraFocusTarget.transform.position;
+        lastTargetPosition = GetAveragePosition(cameraFocusTargets);
         last_offset = transform.position - lastTargetPosition;
         RenderSettings.skybox.SetFloat("_Rotation", 180.0f);
     }
@@ -36,11 +46,11 @@ public class EnvironmentManager : MonoBehaviour
     }
     void rotateAroundTarget()
     {
-        if (!cameraFocusTarget)
+        if (!cameraFocusTargets.Any())
         {
             return;
         }
-        Vector3 target_position = cameraFocusTarget.transform.position;
+        Vector3 target_position = GetAveragePosition(cameraFocusTargets);
         float hori_angle = .5f * (Input.mousePosition.x - lastMousePos.x);
         float elev_angle = -.5f * (Input.mousePosition.y - lastMousePos.y * Mathf.Sign(Input.mousePosition.y));
         lastMousePos = Input.mousePosition;
@@ -84,10 +94,10 @@ public class EnvironmentManager : MonoBehaviour
         var target_position = lastTargetPosition;
 
         //FIXME first time switching to a new object, camera does not aim at object!
-        if (cameraFocusTarget)
+        if (cameraFocusTargets.Any())
         {
             //force camera to follow target each frame
-            target_position = cameraFocusTarget.transform.position;
+            target_position = GetAveragePosition(cameraFocusTargets);
             lastTargetPosition = Vector3.Lerp(lastTargetPosition, target_position, Time.deltaTime * FollowSensitivity);
             transform.position = lastTargetPosition + last_offset;
         }

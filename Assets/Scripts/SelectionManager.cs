@@ -1,12 +1,16 @@
 ﻿//Takes mouse or xr controlls, finds what they're pointing to, return object being selected
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.Assertions;
 using UnityEngine;
+using System.Linq;
+using System;
 using TMPro;
 
 
 public class MoveUnit
 {
+    bool valid; //don't touch this if not valid
     public GameObject move_ring;
     public GameObject label_distance;
     public TextMeshPro ld_tmp;
@@ -18,6 +22,7 @@ public class MoveUnit
     public float y_offset;          //y offset from h-point, to be added onto h_point.y
     public GameObject go;           //unit that is moving
     public GameObject base_height;         //ui_height for move unit
+    float distance = 0;
 
     public MoveUnit(float line_width, GameObject ld, GameObject mr, GameObject ml, GameObject unit, GameObject bh)
     {
@@ -41,34 +46,52 @@ public class MoveUnit
 
     public void StartMoving()
     {
+        Assert.IsTrue(valid == true);
         done_moving = false;
     }
 
     public bool HasArrived()
     {
-        float distance = (go.transform.position - destination).magnitude;
-        return (distance < .5f);
+        done_moving = (GetDistance()< .2f);
+        return done_moving;
     }
 
+    public float GetDistance()
+    {
+        distance = (go.transform.position - destination).magnitude;
+        return distance;
+    }
+
+    public bool IsValid()
+    {
+        return valid;
+    }
     public void SetActive(bool active)
     {
+        valid = active;
         move_ring.SetActive(active);
         move_line.SetActive(active);
         base_height.SetActive(active);
         label_distance.SetActive(active);
         lr.enabled = active;
         y_offset = 0;
-        if (!active)
-        {
-            done_moving = true;
-        }
+        done_moving = !active;
     }
+
+    public void BeginPlanning(GameObject g)
+    {
+        Assert.IsTrue(g != null);
+        go = g;
+        SetActive(true);
+        done_moving = false;
+    }
+
 }
 
 public class SelectionManager : MonoBehaviour
 {
     EnvironmentManager em;
-    GameObject selectedGo;
+    List<GameObject> selected_gos = new List<GameObject>();
     Camera camera;
 
     //move indicators
@@ -84,8 +107,11 @@ public class SelectionManager : MonoBehaviour
     public float line_width = 0.05f;
     private MaterialPropertyBlock _propBlock;
 
-    MoveUnit ui_move_unit;
-    Dictionary<GameObject, MoveUnit> move_units;
+
+    List<MoveUnit> mu_pool = new List<MoveUnit>();
+    List<MoveUnit> ui_move_units = new List<MoveUnit>();
+    //move_units need to be dictionary b/c fast search on cancel
+    List<MoveUnit> move_units = new List<MoveUnit>();
 
     List<MouseButtonState> mb;
 
@@ -96,15 +122,6 @@ public class SelectionManager : MonoBehaviour
         comp.target = target;
         return go;
     }
-
-    void BeginPlanning(MoveUnit mu, GameObject g)
-    {
-        //TODO assert g is not null
-        mu.go = g;
-        mu.SetActive(true);
-        mu.done_moving = false;
-    }
-
 
     //on disable, remember to disable base as well
     MoveUnit NewMoveUnit(GameObject unit=null)
@@ -134,8 +151,6 @@ public class SelectionManager : MonoBehaviour
         em = GameObject.FindObjectOfType<EnvironmentManager>();
         move_line.SetActive(false);
         move_ring.SetActive(false);
-        move_units = new Dictionary<GameObject, MoveUnit>();
-        ui_move_unit = NewMoveUnit();
     }
 
     // Update is called once per frame
@@ -143,7 +158,6 @@ public class SelectionManager : MonoBehaviour
     {
         MouseControl();
         StateMachine();
-        //Select();
         MoveIndicator();
         MoveUnits();
     }
@@ -201,6 +215,7 @@ public class SelectionManager : MonoBehaviour
     //when move command is confirmed, the MoveUnit is... 
     //moved over to move_units to have an effect
     int prev_command = 0;
+    //Dictionary<int, string> command_map = new Dictionary<int, string>();
     void StateMachine()
     {
         //Philosophy: only accept 1 legal command per frame
@@ -215,26 +230,32 @@ public class SelectionManager : MonoBehaviour
         bool lmb_up = Input.GetMouseButtonUp(0);
         bool rmb_down = Input.GetMouseButtonDown(1);
         bool rmb_up = Input.GetMouseButtonUp(1);
-        bool move_command = ctrl_key & lmb_up & !mb[0].DidTravel()| (rmb_up & !mb[1].DidTravel());
-        bool focus_command = !move_command & lmb_down & alt_key & (em.newFocusTarget != null);
-        bool attack_command = !move_command & lmb_down & ctrl_key;
-        bool select_command = !move_command & !focus_command & (lmb_down |lmb | lmb_up);
+        bool move_command = !mb[0].DidTravel() & ((ctrl_key & lmb_up) | rmb_up);
+        bool focus_command = !move_command & lmb_up & alt_key & (em.newFocusTargets.Any());
+        bool attack_command = !move_command & lmb_up & ctrl_key;
+        bool select_command = !move_command & !focus_command & (lmb_up);
         bool cancel_command = Input.GetKey(KeyCode.Escape);
         bool stop_command = Input.GetKey("s");
 
 
         //priorities
+        string[] ct = new string[32]; //command text
+        ct[0x1] = "command: cancel";
+        ct[0x2] = "command: select";
+        ct[0x4] = "command: focus";
+        ct[0x8] = "command: move";
+
         int command = 0;
         command += cancel_command ? 0x1 : 0;
         command += select_command ? 0x2 : 0;
         command += focus_command  ? 0x4 : 0;
         command += move_command   ? 0x8 : 0;
-        command += attack_command ? 0x10 : 0;
-        if (prev_command != command) {
-            Debug.Log("command: " + command.ToString());
-            prev_command = command;
+        //command += attack_command ? 0x10 : 0;
+
+        if (prev_command != command && command != 0) {
+            Debug.Log("command: " + command.ToString() + " " + ct[command]);
         }
-        //  special?
+        prev_command = command;
 
         if (cancel_command) { CancelCommand(); }
         else if (select_command) { SelectCommand(lmb_down, lmb, lmb_up); }
@@ -255,8 +276,28 @@ public class SelectionManager : MonoBehaviour
     void CancelCommand()
     {
         move_ui_state = MoveState.idle;
-        ui_move_unit.SetActive(false);
-        em.newFocusTarget = null;
+        foreach (var mu in ui_move_units)
+        {
+            mu.SetActive(false);
+        }
+        em.newFocusTargets.Clear();
+        //take all selected gos and cancel them in move_units
+    }
+
+    void SetSelection(bool active)
+    {
+        foreach (var sgo in selected_gos)
+        {
+            sgo.transform.Find("selection_ring").gameObject.SetActive(active);
+        }
+    }
+
+    //TODO move this to a general help file
+    void Swap<T>(ref T a, ref T b)
+    {
+        var tmp = a;
+        a = b;
+        b = tmp;
     }
 
     void SelectCommand(bool down, bool pressed, bool up)
@@ -279,25 +320,26 @@ public class SelectionManager : MonoBehaviour
             //add all units to selection array
             //disable selection box
         }
-        if (em.newFocusTarget) {
-            //take new focus and set to old focus, stop move unit first
-            if (selectedGo)
-            {
-                selectedGo.transform.Find("selection_ring").gameObject.SetActive(false);
-            }
-            selectedGo = em.newFocusTarget;
-            selectedGo.transform.Find("selection_ring").gameObject.SetActive(true);
+        if (em.newFocusTargets.Any()) {
+            //disable selection indicators for deselected units; swap w/ new focus list, show selection indicators
+            SetSelection(false);
+            selected_gos.Clear();
+            Swap(ref selected_gos, ref em.newFocusTargets);
+            SetSelection(true);
         }
     }
 
     void FocusCommand()
     {
+        //distinction bewteen following focus and single location focus
         //switch focus
-        em.cameraFocusTarget = em.newFocusTarget;
+        em.cameraFocusTargets.Clear();
+        Swap(ref em.cameraFocusTargets, ref em.newFocusTargets);
     }
+
     void MoveCommand()
     {
-        if (selectedGo == null)
+        if (!selected_gos.Any())
         {
             return;
         }
@@ -317,33 +359,131 @@ public class SelectionManager : MonoBehaviour
             default:
                 break;
         }
-        ProcessMoveState();
-    }
 
-    void ProcessMoveState()
-    {
+        //update ui_move_units to use all selected units
         if (move_ui_state == MoveState.planning)
         {
             Debug.Log("start move planning!");
-            BeginPlanning(ui_move_unit, selectedGo);
+            PopulateMoveUi();
         } else if (move_ui_state == MoveState.confirmed)
         {
-            //create new move_unit
-            //swap existing if possible
-            MoveUnit nmu;
-            if (move_units.ContainsKey(selectedGo)) {
-                nmu = move_units[selectedGo];
-            } else {
-                nmu = NewMoveUnit(selectedGo);
-            }
-            nmu.SetActive(false);
-            //swap
-            move_units[selectedGo] = ui_move_unit;
-            ui_move_unit = nmu;
+            Debug.Log("move confirmed!");
+            //start moving these units
+            foreach (var mu in ui_move_units)
+            {
+                mu.StartMoving();
 
-            move_units[selectedGo].StartMoving();
-            Debug.Log("move confirmed, moving! y offset: " + ui_move_unit.y_offset.ToString());
+                //if mu already in move_units,
+                //suspend and disable mu, move back to pool
+                var index = move_units.FindIndex(x => x.go == mu.go);
+                if (index != -1)
+                {
+                    //move it back to pool
+                    var m = move_units[index];
+                    m.SetActive(false);
+                    mu_pool.Add(m);
+                    move_units.RemoveAt(index);
+                }
+            }
+
+            //move ui mu to become active mu
+            move_units.AddRange(ui_move_units);
+            ui_move_units.Clear();
+            foreach (var mu in move_units) 
+            {
+                mu.SetActive(true);
+            }
+
+            Debug.Log("move_units.Count: " + move_units.Count.ToString());
+            Assert.IsTrue(move_units.All(x => x.IsValid() == true));
+            //Debug.Log("move confirmed, moving! y offset: " + ui_move_unit.y_offset.ToString());
             move_ui_state = MoveState.idle;
+        }
+    }
+
+    //populate ui_move_units with selected units (game objects)
+    void PopulateMoveUi()
+    {
+        //selected_gos and ui_move_units must be same size
+        //if selected_gos > ui_move_units
+        //  grab from pool
+        //  allocate whatever is left
+        //if ui_move_units > selected_gos
+        //  throw extras back to pool
+        Assert.IsTrue(selected_gos.Count > 0);
+        var num_extra = selected_gos.Count - ui_move_units.Count;
+
+        int selected_count = selected_gos.Count;
+        int ui_count = ui_move_units.Count;
+        int move_count = move_units.Count;
+
+        //if selected_gos > ui_move_units
+        if (num_extra > 0)
+        {
+            //  grab from pool
+            Debug.Log("num extra; " + num_extra.ToString() + " pool size: " + mu_pool.Count.ToString());
+            int take_from_pool = Math.Min(num_extra, mu_pool.Count);
+            if (take_from_pool > 0)
+            {
+                ui_move_units.AddRange(mu_pool.Take(take_from_pool));
+                mu_pool.RemoveRange(0, take_from_pool);
+                num_extra -= take_from_pool;
+                //num_extra = selected_gos.Count - ui_move_units.Count;
+            }
+
+            Debug.Log("num extra; " + num_extra.ToString() + " pool size: " + mu_pool.Count.ToString());
+            //allocate the rest
+            for (int i = 0; i < num_extra; i++)
+            {
+                ui_move_units.Add(NewMoveUnit());
+            }
+        } else if (num_extra < 0)
+        {
+            Assert.IsTrue(false); //this shouldn't happen, can't get here if ui_move_units must be cleared first?
+            //if ui_move_units > selected_gos
+            //  throw extras back to pool
+            var num_return = -num_extra;
+            //TODO consider using Skip instead of Take if better performance?
+            mu_pool.AddRange(ui_move_units.Take(num_return));
+        }
+
+        string output = "ui_move_units: ";
+        foreach (var mu in ui_move_units)
+        {
+            if (mu.IsValid() == true)
+            {
+                output += mu.go.name + "; ";
+            }
+        }
+        int num_valid = 0;
+        output += "\tmove_units: ";
+        foreach (var mu in move_units)
+        {
+            if (mu.IsValid() == true)
+            {
+                num_valid++;
+                output += mu.go.name + "; ";
+            }
+        }
+        Debug.Log("before: " + selected_count.ToString()
+                + " " + ui_count.ToString()
+                + " " + move_count.ToString()
+                + " after: " + selected_gos.Count
+                + " " + ui_move_units.Count.ToString()
+                + " " + move_units.Count.ToString()
+                + " " + num_valid.ToString()
+                + "\n" + output);
+        if (selected_gos.Count != ui_move_units.Count)
+        {
+            Debug.Log("no good, " + selected_gos.Count.ToString() + ", " + ui_move_units.Count.ToString());
+        }
+        Assert.IsTrue(selected_gos.Count == ui_move_units.Count);
+        //initialize mu
+        int j = 0;
+        foreach (var go in selected_gos)
+        {
+            ui_move_units[j].BeginPlanning(go);
+            j++;
         }
     }
 
@@ -353,16 +493,18 @@ public class SelectionManager : MonoBehaviour
     void MoveIndicator()
     {
         //right click to start move
-        UpdateMoveIndicator(ui_move_unit.go, ui_move_unit, true);
-
-        foreach (var entry in move_units)
+        foreach (var mu in ui_move_units)
         {
-            UpdateMoveIndicator(entry.Key, entry.Value, false);
+            UpdateMoveIndicator(mu.go, mu, true);
+        }
+
+        foreach (var mu in move_units)
+        {
+            UpdateMoveIndicator(mu.go, mu, false);
         }
     }
 
-    //TODO add height marker to destination relative to unit when planning
-    //TODO add height marker to destination relative to map base when moving/confirmed
+    //TODO add radius/sphere/ring indicator when moving
     void UpdateMoveIndicator(GameObject go, MoveUnit mu, bool ui)
     {
         if (mu == null || mu.done_moving)
@@ -370,7 +512,7 @@ public class SelectionManager : MonoBehaviour
             return;
         }
         float distance;
-        if (ui) //go == selectedGo && move_ui_state == MoveState.start)
+        if (ui) //go == selected_gos && move_ui_state == MoveState.start)
         {
             //get mouse x/y
             Ray ray = camera.ScreenPointToRay(Input.mousePosition);//, Camera.MonoOrStereoscopicEye.Right);
@@ -425,40 +567,21 @@ public class SelectionManager : MonoBehaviour
         //for all units in list, move them to their destination;
         //when close enough to their destination
         //disable move indicators
-        foreach (var entry in move_units)
+        for (int i = 0; i < move_units.Count; i++)
         {
-            var go = entry.Key;
-            var mu = entry.Value;
-            if (mu == null || mu.done_moving || mu.HasArrived())
+            var mu = move_units[i];
+            if (mu == null || mu.HasArrived())
             {
-                if (mu != null && !mu.done_moving) {
+                if (mu != null && mu.done_moving) {
+                    Debug.Log("Done moving! " + mu.GetDistance().ToString());
                     mu.SetActive(false);
+                    mu_pool.Add(mu);
+                    move_units.RemoveAt(i);
                 }
                 continue;
             }
-            var dir = mu.destination - go.transform.position;
-            go.transform.position += dir.normalized * .0002f;
-        }
-    }
-
-    void Select()
-    {
-        //if selection has changed, disable old selection ring, enable new selection ring  
-        if (em.newFocusTarget)
-        {
-            //TODO add or subtract from selection; multiple selected objects
-            if (Input.GetKey(KeyCode.LeftAlt))
-            {
-                em.cameraFocusTarget = em.newFocusTarget;
-            } else {
-                if (selectedGo)
-                {
-                    selectedGo.transform.Find("selection_ring").gameObject.SetActive(false);
-                }
-                em.newFocusTarget.transform.Find("selection_ring").gameObject.SetActive(true);
-                selectedGo = em.newFocusTarget;
-            }
-            em.newFocusTarget = null;
+            var dir = mu.destination - mu.go.transform.position;
+            mu.go.transform.position += dir.normalized * .0002f;
         }
     }
 }

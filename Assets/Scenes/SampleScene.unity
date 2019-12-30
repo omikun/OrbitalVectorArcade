@@ -758,8 +758,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc8d7c4c69eb042f195b5358fc7fd106, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  newFocusTarget: {fileID: 0}
-  cameraFocusTarget: {fileID: 1068159377}
+  newFocusTargets: []
+  cameraFocusTargets:
+  - {fileID: 1068159377}
   ScrollSensitvity: 2
   FollowSensitivity: 10
   MouseSensitivity: 10
@@ -7651,8 +7652,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc8d7c4c69eb042f195b5358fc7fd106, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  newFocusTarget: {fileID: 0}
-  cameraFocusTarget: {fileID: 0}
+  newFocusTargets: []
+  cameraFocusTargets: []
   ScrollSensitvity: 2
   FollowSensitivity: 10
   MouseSensitivity: 4
