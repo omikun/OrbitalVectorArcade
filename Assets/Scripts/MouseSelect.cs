@@ -50,11 +50,28 @@ public static class Utils
         // Create Rect
         return Rect.MinMaxRect( topLeft.x, topLeft.y, bottomRight.x, bottomRight.y );
     }
+
+    public static Bounds GetViewportBounds( Camera camera, Vector3 screenPosition1, Vector3 screenPosition2 )
+    {
+        var v1 = Camera.main.ScreenToViewportPoint( screenPosition1 );
+        var v2 = Camera.main.ScreenToViewportPoint( screenPosition2 );
+        var min = Vector3.Min( v1, v2 );
+        var max = Vector3.Max( v1, v2 );
+        min.z = camera.nearClipPlane;
+        max.z = camera.farClipPlane;
+
+        var bounds = new Bounds();
+        bounds.SetMinMax( min, max );
+        return bounds;
+    }
 }
+
+
 public class MouseSelect : MonoBehaviour
 {
     bool isSelecting = false;
     Vector3 mousePosition1;
+    int prev_num_selected = 0;
 
     void Update()
     {
@@ -67,6 +84,34 @@ public class MouseSelect : MonoBehaviour
         // If we let go of the left mouse button, end selection
         if( Input.GetMouseButtonUp( 0 ) )
             isSelecting = false;
+
+        if (isSelecting)
+        {
+            var gos = GameObject.FindGameObjectsWithTag("unit");
+            int num_selected = 0;
+            foreach (var go in gos)
+            {
+                num_selected += IsWithinSelectionBounds(go) ? 1 : 0;
+            }
+            if (num_selected != prev_num_selected)
+            {
+                Debug.Log("Num selected: " + num_selected.ToString());
+            }
+            prev_num_selected = num_selected;
+        }
+    }
+
+    public bool IsWithinSelectionBounds( GameObject gameObject )
+    {
+        if( !isSelecting )
+            return false;
+
+        var camera = Camera.main;
+        var viewportBounds =
+            Utils.GetViewportBounds( camera, mousePosition1, Input.mousePosition );
+
+        return viewportBounds.Contains(
+            camera.WorldToViewportPoint( gameObject.transform.position ) );
     }
 
     void OnGUI()
