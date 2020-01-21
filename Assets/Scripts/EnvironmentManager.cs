@@ -10,6 +10,7 @@ public class EnvironmentManager : MonoBehaviour
     Vector3 lastMousePos;
     Vector3 lastTargetPosition;
     Vector3 last_offset;
+    public int target_frame_rate = 30;
     public List<GameObject> newFocusTargets = new List<GameObject>();
     public List<GameObject> cameraFocusTargets = new List<GameObject>();
     Vector3 prevFocusPos;
@@ -29,6 +30,7 @@ public class EnvironmentManager : MonoBehaviour
         lastTargetPosition = GetAveragePosition(cameraFocusTargets);
         last_offset = transform.position - lastTargetPosition;
         RenderSettings.skybox.SetFloat("_Rotation", 180.0f);
+        Application.targetFrameRate = target_frame_rate;
     }
 
     void rotateWorldMouse()

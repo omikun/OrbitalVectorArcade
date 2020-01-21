@@ -69,9 +69,22 @@ public static class Utils
 
 public class MouseSelect : MonoBehaviour
 {
+    EnvironmentManager em;
     bool isSelecting = false;
     Vector3 mousePosition1;
     int prev_num_selected = 0;
+
+    void Start()
+    {
+        em = GameObject.FindObjectOfType<EnvironmentManager>();
+    }
+
+    void Swap<T>(ref T a, ref T b)
+    {
+        var tmp = a;
+        a = b;
+        b = tmp;
+    }
 
     void Update()
     {
@@ -89,15 +102,21 @@ public class MouseSelect : MonoBehaviour
         {
             var gos = GameObject.FindGameObjectsWithTag("unit");
             int num_selected = 0;
+            var selection = new List<GameObject>();
             foreach (var go in gos)
             {
                 num_selected += IsWithinSelectionBounds(go) ? 1 : 0;
+                if (IsWithinSelectionBounds(go))
+                {
+                    selection.Add(go);
+                }
             }
             if (num_selected != prev_num_selected)
             {
                 Debug.Log("Num selected: " + num_selected.ToString());
             }
             prev_num_selected = num_selected;
+            Swap(ref selection, ref em.newFocusTargets);
         }
     }
 
