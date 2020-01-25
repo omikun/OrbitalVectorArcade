@@ -15,6 +15,8 @@ public class MissileFireControl : MonoBehaviour
     float firing_interval = 1.5f;
     float start_fire_offset = .1f;
     float last_fire_time = 0f;
+    bool can_fire = false;
+
     void Start()
     {
         //missile_base.SetActive(false);
@@ -25,9 +27,10 @@ public class MissileFireControl : MonoBehaviour
     {
         //find all valid targets
         //spawn missiles with target
-        bool can_fire = Time.time - last_fire_time > firing_interval;
-        if (can_fire)
+        bool can_fire_now = Time.time - last_fire_time > firing_interval;
+        if (can_fire_now && can_fire)
         {
+            can_fire = false;
             last_fire_time = Time.time;
             //instantiate missile, set target on missile
             var missile = Instantiate(missile_base);
@@ -38,5 +41,10 @@ public class MissileFireControl : MonoBehaviour
             missile.transform.position = transform.position + offset;
             missile.GetComponent<Rigidbody>().velocity = offset;
         }
+    }
+
+    public void Fire()
+    {
+        can_fire = true;
     }
 }

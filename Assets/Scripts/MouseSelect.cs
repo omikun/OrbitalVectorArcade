@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 public static class Utils
 {
@@ -71,12 +72,15 @@ public class MouseSelect : MonoBehaviour
 {
     EnvironmentManager em;
     bool isSelecting = false;
-    Vector3 mousePosition1;
+    Vector3 mouse_position1;
     int prev_num_selected = 0;
+    Camera camera;
 
     void Start()
     {
-        em = GameObject.FindObjectOfType<EnvironmentManager>();
+        var go = GameObject.FindObjectOfType<EnvironmentManager>();
+        em = go.GetComponent<EnvironmentManager>();
+        camera = Camera.main;
     }
 
     void Swap<T>(ref T a, ref T b)
@@ -86,18 +90,43 @@ public class MouseSelect : MonoBehaviour
         b = tmp;
     }
 
+    //triggers menu buttons or unit selection
+    bool SingleSelect(Vector2 mouse_position)
+    {
+        RaycastHit hit;
+        Ray ray = camera.ScreenPointToRay(mouse_position);
+        if(Physics.Raycast(ray, out hit))
+        {
+            if(hit.collider.isTrigger)
+            {
+                //Do the thing
+                Debug.Log("hit a thing! " + hit.collider.gameObject.name);
+                //invoke event
+                hit.collider.GetComponent<TestEvent>().m_MyEvent.Invoke();
+
+                return true;
+            }
+        }
+        return false;
+    }
+
     void Update()
     {
         // If we press the left mouse button, save mouse location and begin selection
         if( Input.GetMouseButtonDown( 0 ) )
         {
             isSelecting = true;
-            mousePosition1 = Input.mousePosition;
+            mouse_position1 = Input.mousePosition;
+            if (SingleSelect(mouse_position1))
+            {
+                return;
+            }
         }
         // If we let go of the left mouse button, end selection
         if( Input.GetMouseButtonUp( 0 ) )
             isSelecting = false;
 
+        // select by drag box
         if (isSelecting)
         {
             var gos = GameObject.FindGameObjectsWithTag("unit");
@@ -125,9 +154,8 @@ public class MouseSelect : MonoBehaviour
         if( !isSelecting )
             return false;
 
-        var camera = Camera.main;
         var viewportBounds =
-            Utils.GetViewportBounds( camera, mousePosition1, Input.mousePosition );
+            Utils.GetViewportBounds( camera, mouse_position1, Input.mousePosition );
 
         return viewportBounds.Contains(
             camera.WorldToViewportPoint( gameObject.transform.position ) );
@@ -138,7 +166,7 @@ public class MouseSelect : MonoBehaviour
         if( isSelecting )
         {
             // Create a rect from both mouse positions
-            var rect = Utils.GetScreenRect( mousePosition1, Input.mousePosition );
+            var rect = Utils.GetScreenRect( mouse_position1, Input.mousePosition );
             Utils.DrawScreenRect( rect, new Color( 0.8f, 0.8f, 0.95f, 0.25f ) );
             Utils.DrawScreenRectBorder( rect, 2, new Color( 0.8f, 0.8f, 0.95f ) );
         }
