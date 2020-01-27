@@ -233,7 +233,8 @@ public class SelectionManager : MonoBehaviour
         bool move_command = !mb[0].DidTravel() & ((ctrl_key & lmb_up) | rmb_up);
         bool focus_command = !move_command & lmb_up & alt_key & (em.newFocusTargets.Any());
         bool attack_command = !move_command & lmb_up & ctrl_key;
-        bool select_command = !move_command & !focus_command & (lmb_up);
+        //FIXME lmb_up if drag select, otherwise on lmb_down
+        bool select_command = !move_command & !focus_command & (lmb_up | lmb_down);
         bool cancel_command = Input.GetKey(KeyCode.Escape);
         bool stop_command = Input.GetKey("s");
 
