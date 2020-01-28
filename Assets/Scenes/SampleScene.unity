@@ -2377,8 +2377,8 @@ GameObject:
   - component: {fileID: 963194230}
   - component: {fileID: 963194229}
   - component: {fileID: 963194231}
-  - component: {fileID: 963194232}
   - component: {fileID: 963194233}
+  - component: {fileID: 963194232}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -2558,16 +2558,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 963194225}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 67096cce92a6e4a21b9b3affcbf3743f, type: 3}
+  m_Script: {fileID: 11500000, guid: 311c8462428074ab88c8b20c19df0d74, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   move_ring: {fileID: 585961228}
   move_line: {fileID: 1599036036}
   ui_height: {fileID: 1520714892}
   label_distance: {fileID: 979309192}
-  stem_color: {r: 1, g: 0.80274147, b: 0.2216981, a: 0}
+  stem_color: {r: 1, g: 0.7702257, b: 0.25943398, a: 0}
   offset: 0.15
-  line_width: 0.005
+  line_width: 0.003
 --- !u!114 &963194233
 MonoBehaviour:
   m_ObjectHideFlags: 0

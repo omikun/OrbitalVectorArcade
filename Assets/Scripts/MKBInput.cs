@@ -88,7 +88,7 @@ public class MoveUnit
 
 }
 
-public class SelectionManager : MonoBehaviour
+public class MKBInput : MonoBehaviour
 {
     EnvironmentManager em;
     List<GameObject> selected_gos = new List<GameObject>();
@@ -191,6 +191,7 @@ public class SelectionManager : MonoBehaviour
                 pos1 = Input.mousePosition;
             }
         }
+        //if traveled while mousebutton is pressed
         public bool DidTravel() {
             return (pos0 - pos1).magnitude > threshold;
         }
@@ -208,10 +209,8 @@ public class SelectionManager : MonoBehaviour
         }
     }
 
-        //find mouse coord on mouse down
-        //find mouse coord on mouse
-        //find mouse coord on mouse up
-    //when user starts move command, a ui_move_unit is created to represent the UI
+    //select w/ lmb down if mouse over target else w/ lmb up
+    //move if valid selection
     //when move command is confirmed, the MoveUnit is... 
     //moved over to move_units to have an effect
     int prev_command = 0;
@@ -230,7 +229,8 @@ public class SelectionManager : MonoBehaviour
         bool lmb_up = Input.GetMouseButtonUp(0);
         bool rmb_down = Input.GetMouseButtonDown(1);
         bool rmb_up = Input.GetMouseButtonUp(1);
-        bool move_command = !mb[0].DidTravel() & ((ctrl_key & lmb_up) | rmb_up);
+        bool move_command = (!mb[0].DidTravel() & ctrl_key & lmb_up) 
+                          | (!mb[1].DidTravel() & rmb_up);
         bool focus_command = !move_command & lmb_up & alt_key & (em.newFocusTargets.Any());
         bool attack_command = !move_command & lmb_up & ctrl_key;
         //FIXME lmb_up if drag select, otherwise on lmb_down
@@ -342,6 +342,7 @@ public class SelectionManager : MonoBehaviour
     {
         if (!selected_gos.Any())
         {
+            Debug.Log("Nothing selected to move");
             return;
         }
         switch(move_ui_state) {

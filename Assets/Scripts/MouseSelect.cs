@@ -102,9 +102,12 @@ public class MouseSelect : MonoBehaviour
                 //Do the thing
                 Debug.Log("hit a thing! " + hit.collider.gameObject.name);
                 //invoke event
-                hit.collider.GetComponent<TestEvent>().m_MyEvent.Invoke();
-
-                return true;
+                var e = hit.collider.GetComponent<TestEvent>();
+                if (e != null)
+                {
+                    e.m_MyEvent.Invoke();
+                    return true;
+                }
             }
         }
         return false;
